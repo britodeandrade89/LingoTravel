@@ -1,0 +1,7 @@
+{
+  "name": "LingoTravel",
+  "description": "A pronunciation comparison tool allowing users to record their voice and compare it with native speech.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
