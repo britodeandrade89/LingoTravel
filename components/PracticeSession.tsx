@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MessageSquareText } from 'lucide-react';
 import { PhraseData, Dialect } from '../types';
 import { PhraseCard } from './PhraseCard';
 import { RecordButton } from './RecordButton';
@@ -10,13 +10,15 @@ interface PracticeSessionProps {
   dialect: Dialect;
   phrases: PhraseData[];
   onBack: () => void;
+  onConversationMode: (phrase: PhraseData) => void;
 }
 
 export const PracticeSession: React.FC<PracticeSessionProps> = ({ 
   languageName,
   dialect, 
   phrases, 
-  onBack 
+  onBack,
+  onConversationMode
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
@@ -44,6 +46,7 @@ export const PracticeSession: React.FC<PracticeSessionProps> = ({
         return;
       }
 
+      window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(currentPhrase.target_text);
       // Use the specific dialect code (e.g. 'en-ZA' for South Africa)
       utterance.lang = dialect.code; 
@@ -59,7 +62,6 @@ export const PracticeSession: React.FC<PracticeSessionProps> = ({
         resolve();
       };
 
-      window.speechSynthesis.cancel();
       window.speechSynthesis.speak(utterance);
     });
   }, [currentPhrase, dialect]);
@@ -138,9 +140,9 @@ export const PracticeSession: React.FC<PracticeSessionProps> = ({
   };
 
   return (
-    <div className="flex flex-col items-center min-h-screen w-full p-4 relative animate-fade-in">
+    <div className="flex flex-col items-center min-h-screen w-full p-4 relative animate-fade-in pb-20">
       {/* Header */}
-      <div className="w-full max-w-md flex items-center justify-between mb-6 pt-2">
+      <div className="w-full max-w-md flex items-center justify-between mb-4 pt-2">
         <button onClick={onBack} className="p-2 text-slate-500 hover:bg-slate-100 rounded-full">
           <ChevronLeft size={24} />
         </button>
@@ -161,10 +163,19 @@ export const PracticeSession: React.FC<PracticeSessionProps> = ({
                 </span>
             </div>
         </div>
-        <div className="w-10"></div> {/* Spacer for alignment */}
+        <div className="w-10"></div>
       </div>
 
       <PhraseCard data={currentPhrase} />
+
+      {/* Conversation Mode Trigger */}
+      <button 
+        onClick={() => onConversationMode(currentPhrase)}
+        className="w-full max-w-md mb-6 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 p-4 rounded-xl flex items-center justify-center gap-2 font-semibold transition-colors border border-indigo-200"
+      >
+        <MessageSquareText size={20} />
+        Abrir Modo Conversação
+      </button>
 
       <div className="flex-1 w-full max-w-md flex flex-col items-center justify-center">
         <ActionButtons 
@@ -175,7 +186,7 @@ export const PracticeSession: React.FC<PracticeSessionProps> = ({
           isPlayingComparison={isPlayingComparison}
         />
         
-        <div className="h-8"></div>
+        <div className="h-6"></div>
 
         <RecordButton 
           isRecording={isRecording}

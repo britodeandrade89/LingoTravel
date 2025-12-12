@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { ScreenState, Language, Category, Dialect } from './types';
+import { ScreenState, Language, Category, Dialect, PhraseData } from './types';
 import { LANGUAGES, CATEGORIES, PHRASES, DIALECTS } from './data';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { SelectionScreen } from './components/SelectionScreen';
 import { PracticeSession } from './components/PracticeSession';
+import { ConversationMode } from './components/ConversationMode';
 
 // Background decoration wrapper
 const Wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
@@ -24,6 +25,7 @@ const App: React.FC = () => {
   const [selectedLanguage, setSelectedLanguage] = useState<Language | null>(null);
   const [selectedDialect, setSelectedDialect] = useState<Dialect | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [conversationPhrase, setConversationPhrase] = useState<PhraseData | null>(null);
 
   const handleStart = () => setScreen('language-select');
 
@@ -42,9 +44,13 @@ const App: React.FC = () => {
     setScreen('practice');
   };
 
+  const handleConversationMode = (phrase: PhraseData) => {
+    setConversationPhrase(phrase);
+    setScreen('conversation');
+  };
+
   const getPhrases = () => {
     if (!selectedLanguage || !selectedCategory) return [];
-    // Note: We use the main language ID to fetch phrases, but the dialect code for TTS in PracticeSession
     return PHRASES[selectedLanguage.id]?.[selectedCategory.id] || [];
   };
 
@@ -75,7 +81,7 @@ const App: React.FC = () => {
           title="Qual sotaque?"
           subtitle={`Escolha a região para a pronúncia em ${selectedLanguage.name}.`}
           items={getDialectsForLanguage()}
-          type="language" // We reuse the 'language' type layout for dialects as it renders flags nicely
+          type="language" 
           onSelect={handleDialectSelect}
           onBack={() => setScreen('language-select')}
           headerIcon={
@@ -112,6 +118,15 @@ const App: React.FC = () => {
           dialect={selectedDialect}
           phrases={getPhrases()}
           onBack={() => setScreen('category-select')}
+          onConversationMode={handleConversationMode}
+        />
+      )}
+
+      {screen === 'conversation' && conversationPhrase && selectedDialect && (
+        <ConversationMode 
+          phrase={conversationPhrase}
+          dialect={selectedDialect}
+          onBack={() => setScreen('practice')}
         />
       )}
     </Wrapper>

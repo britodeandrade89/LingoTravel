@@ -1,4 +1,4 @@
-export type ScreenState = 'welcome' | 'language-select' | 'dialect-select' | 'category-select' | 'practice';
+export type ScreenState = 'welcome' | 'language-select' | 'dialect-select' | 'category-select' | 'practice' | 'conversation';
 
 export interface PhraseData {
   id: number;
