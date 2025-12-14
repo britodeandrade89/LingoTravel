@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, Volume2, Mic, RotateCcw, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, Volume2, Mic, AlertTriangle, Sparkles } from 'lucide-react';
 import { PhraseData, Dialect } from '../types';
+import { GoogleGenAI } from "@google/genai";
 
 interface ConversationModeProps {
   phrase: PhraseData;
@@ -16,6 +17,8 @@ export const ConversationMode: React.FC<ConversationModeProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState<string>('');
+  const [translatedText, setTranslatedText] = useState<string>('');
+  const [isTranslating, setIsTranslating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // Ref for Speech Recognition
@@ -26,14 +29,22 @@ export const ConversationMode: React.FC<ConversationModeProps> = ({
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
+      recognitionRef.current.continuous = false; // Stop after one sentence to translate
       recognitionRef.current.interimResults = true;
       recognitionRef.current.lang = dialect.code; // Listen in the target dialect
 
       recognitionRef.current.onresult = (event: any) => {
         const current = event.resultIndex;
-        const transcriptText = event.results[current][0].transcript;
+        const result = event.results[current];
+        const transcriptText = result[0].transcript;
+        
         setTranscript(transcriptText);
+
+        // If the sentence is finished, trigger translation
+        if (result.isFinal) {
+          translateToPortuguese(transcriptText);
+          setIsListening(false); // Stop listening after capturing a sentence
+        }
       };
 
       recognitionRef.current.onerror = (event: any) => {
@@ -53,6 +64,28 @@ export const ConversationMode: React.FC<ConversationModeProps> = ({
       setError("Seu navegador não suporta reconhecimento de voz.");
     }
   }, [dialect]);
+
+  const translateToPortuguese = async (text: string) => {
+    if (!text || !process.env.API_KEY) return;
+    
+    setIsTranslating(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: `Translate the following text from ${dialect.name} to Portuguese (Brazil). Return ONLY the translated text, nothing else: "${text}"`,
+      });
+      
+      if (response.text) {
+        setTranslatedText(response.text.trim());
+      }
+    } catch (err) {
+      console.error("Translation error:", err);
+      setError("Erro na tradução. Verifique sua chave API.");
+    } finally {
+      setIsTranslating(false);
+    }
+  };
 
   const speakPhrase = () => {
     if ('speechSynthesis' in window) {
@@ -76,6 +109,7 @@ export const ConversationMode: React.FC<ConversationModeProps> = ({
     } else {
       setError(null);
       setTranscript('');
+      setTranslatedText('');
       try {
         recognitionRef.current.start();
         setIsListening(true);
@@ -130,26 +164,50 @@ export const ConversationMode: React.FC<ConversationModeProps> = ({
         </div>
 
         {/* Local Card (What they reply) */}
-        <div className={`flex-1 bg-slate-800 rounded-3xl p-6 shadow-lg flex flex-col items-center justify-between border-2 ${isListening ? 'border-red-500 animate-pulse' : 'border-slate-700'}`}>
+        <div className={`flex-1 bg-slate-800 rounded-3xl p-6 shadow-lg flex flex-col items-center justify-between border-2 transition-colors duration-300 ${isListening ? 'border-red-500' : 'border-slate-700'}`}>
           <div className="w-full">
             <span className="text-slate-400 text-sm font-bold uppercase tracking-wider mb-4 block flex items-center gap-2">
                Eles respondem 
                {isListening && <span className="inline-block w-2 h-2 rounded-full bg-red-500 animate-ping"/>}
             </span>
             
-            {transcript ? (
-               <div className="animate-slide-up">
-                   <p className="text-2xl font-medium text-slate-100 mb-2">
-                    "{transcript}"
-                   </p>
-                   <p className="text-slate-400 text-sm italic">
-                     *Texto detectado. Tradução requer internet.
-                   </p>
+            {(transcript || translatedText) ? (
+               <div className="animate-slide-up flex flex-col gap-2">
+                   {/* Detected Original Text */}
+                   {transcript && (
+                     <div className="flex items-center gap-2 text-slate-400">
+                       <p className="text-sm font-medium">"{transcript}"</p>
+                       <img 
+                          src={`https://flagcdn.com/w20/${dialect.countryCode}.png`}
+                          className="w-4 h-3 opacity-70"
+                          alt="origin"
+                        />
+                     </div>
+                   )}
+
+                   {/* Translated Portuguese Text */}
+                   <div className="mt-2 p-4 bg-slate-700/50 rounded-2xl border border-slate-600">
+                     {isTranslating ? (
+                       <div className="flex items-center gap-2 text-indigo-300 animate-pulse">
+                         <Sparkles size={20} />
+                         <span className="font-medium">Traduzindo...</span>
+                       </div>
+                     ) : (
+                       <p className="text-2xl font-bold text-white leading-tight">
+                         {translatedText}
+                       </p>
+                     )}
+                     {!isTranslating && translatedText && (
+                        <p className="text-xs text-slate-400 mt-2 text-right uppercase font-bold tracking-wider">
+                           Traduzido para Português
+                        </p>
+                     )}
+                   </div>
                </div>
             ) : (
                 <div className="flex flex-col items-center justify-center h-40 opacity-30">
                     <p className="text-center text-slate-400 font-medium">
-                        Toque no microfone para escutar e transcrever a resposta.
+                        Toque no microfone para escutar e traduzir a resposta.
                     </p>
                 </div>
             )}
@@ -179,7 +237,7 @@ export const ConversationMode: React.FC<ConversationModeProps> = ({
                 ) : (
                     <>
                         <Mic size={24} />
-                        {transcript ? "Ouvir Novamente" : "Ouvir Resposta"}
+                        {translatedText ? "Ouvir Novamente" : "Ouvir e Traduzir"}
                     </>
                 )}
             </button>
